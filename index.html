@@ -636,10 +636,11 @@ function quickStats() {
   qs.style.display='block';
   const shots   = data.reduce((s,r)=>s+r.count,0);
   const reduced = data.reduce((s,r)=>s+r.reduced,0);
+  const rings   = data.filter(r=>r.ring).length;
   document.getElementById('quick-cards').innerHTML=`
     <div class="stat-card"><div class="stat-label">Всього пострілів</div><div class="stat-value">${shots}</div></div>
-    <div class="stat-card"><div class="stat-label">Приведений настріл</div><div class="stat-value">${reduced.toFixed(2)}</div></div>
-    <div class="stat-card"><div class="stat-label">Записів</div><div class="stat-value">${data.length}</div></div>`;
+    <div class="stat-card"><div class="stat-label">Приведений настріл</div><div class="stat-value">${reduced.toFixed(1)}</div></div>
+    <div class="stat-card"><div class="stat-label">Замінено кілець</div><div class="stat-value" style="color:${rings>0?'var(--success)':'var(--accent)'}">${rings}</div></div>`;
 }
 
 // ── JOURNAL ───────────────────────────────────────
@@ -660,23 +661,28 @@ function renderJournal() {
   const running={};
   const runShots={};  // наростаючі реальні постріли від початку обліку
 
-  // Ініціалізуємо реальні постріли до початку фільтру
+  // Ініціалізуємо приведений і реальні постріли до початку фільтру
   if(from) {
     let preAll = getRec();
+    console.log('preAll total before filter:', preAll.length, 'from=', from, 'bat=', bat, 'cannon=', cannon);
     if(bat)    preAll = preAll.filter(r=>(r.battery||'')===bat);
     if(cannon) preAll = preAll.filter(r=>r.cannon===cannon);
     preAll = preAll.filter(r=>r.date < from);
+    console.log('preAll after filter (before from):', preAll.length, preAll.map(r=>r.date+' '+r.reduced));
     preAll.forEach(r=>{
-      const key = r.cannon||'';
-      if(!runShots[key]) runShots[key]=0;
-      runShots[key]+=r.count;
+      const key = String(r.cannon||'');
+      if(running[key]  === undefined) running[key]=0;
+      if(runShots[key] === undefined) runShots[key]=0;
+      running[key]  += r.reduced;
+      runShots[key] += r.count;
     });
+    console.log('running after preAll:', JSON.stringify(running));
   }
 
   const rows=data.map(r=>{
-    const key=r.cannon||'';
-    if(!running[key])   running[key]=0;
-    if(!runShots[key])  runShots[key]=0;
+    const key=String(r.cannon||'');
+    if(running[key]  === undefined) running[key]=0;
+    if(runShots[key] === undefined) runShots[key]=0;
     running[key]  += r.reduced;
     runShots[key] += r.count;
     return {...r, run:running[key], runShots:runShots[key]};
@@ -699,8 +705,8 @@ function renderJournal() {
       <td class="num">${r.count}</td>
       <td style="text-align:center">${r.ring ? '<span style="color:var(--success)">✔</span>' : ''}</td>
       <td class="num" style="color:${r.ring?'var(--accent2)':'var(--text2)'}">${r.ring ? r.runShots : ''}</td>
-      <td class="num hi">${r.reduced.toFixed(2)}</td>
-      <td class="num">${r.run.toFixed(2)}</td>
+      <td class="num hi">${r.reduced.toFixed(1)}</td>
+      <td class="num">${r.run.toFixed(1)}</td>
       <td style="display:flex;gap:4px;padding-top:5px">
         <button class="btn-icon" onclick="jrnEdit(${i})">&#x270F;</button>
         <button class="btn-danger" onclick="jrnDel(${i})">&#x2715;</button>
@@ -813,7 +819,7 @@ function renderSummary() {
 
   document.getElementById('sum-totals').innerHTML=`
     <div class="stat-card"><div class="stat-label">Пострілів за період</div><div class="stat-value">${totalShots}</div></div>
-    <div class="stat-card"><div class="stat-label">Заг. приведений (з початку)</div><div class="stat-value">${totalReduced.toFixed(2)}</div></div>
+    <div class="stat-card"><div class="stat-label">Заг. приведений (з початку)</div><div class="stat-value">${totalReduced.toFixed(1)}</div></div>
     <div class="stat-card"><div class="stat-label">Активних гармат</div><div class="stat-value">${activeCannons}</div></div>
     <div class="stat-card"><div class="stat-label">Записів за період</div><div class="stat-value">${periodData.length}</div></div>`;
 
@@ -849,7 +855,7 @@ function renderSummary() {
             ${gr.sort((a,b)=>b.count-a.count).map(r=>`
               <div class="sum-row">
                 <span>${escH(r.shell)} / ${escH(r.charge)} / Зона ${r.zone}</span>
-                <span>${r.count}&nbsp;(${r.reduced.toFixed(2)})</span>
+                <span>${r.count}&nbsp;(${r.reduced.toFixed(1)})</span>
               </div>`).join('')}
             <div class="sum-total">
               <div class="sum-total-row">
@@ -860,7 +866,7 @@ function renderSummary() {
                 <span style="color:${ringCount>0?'var(--success)':'var(--text2)'}">${ringCount}</span>
               </div>
               <div class="sum-total-row main">
-                <span>Заг. прив. настр.</span><span>${cumulRed.toFixed(2)}</span>
+                <span>Заг. прив. настр.</span><span>${cumulRed.toFixed(1)}</span>
               </div>
             </div>
           </div>
@@ -906,7 +912,7 @@ function exportExcel() {
     let run=0;
     const rows=cd.map((r,i)=>{
       run+=r.reduced;
-      return [i+1,r.cannon,fmtPeriod(r.date),r.shell,r.charge,`Зона ${r.zone}`,r.count,r.ring?'Так':'',+r.reduced.toFixed(4),+run.toFixed(4)];
+      return [i+1,r.cannon,fmtPeriod(r.date),r.shell,r.charge,`Зона ${r.zone}`,r.count,r.ring?'Так':'',+r.reduced.toFixed(1),+run.toFixed(1)];
     });
     const ws=XLSX.utils.aoa_to_sheet([['№','Гармата','Період','Снаряд','Заряд','Зона','К-ть','Об. кільце','Прив. настр.','Заг. прив. настр.'],...rows]);
     ws['!cols']=[5,12,10,12,10,8,8,8,12,14].map(w=>({wch:w}));
@@ -940,7 +946,7 @@ function exportSummaryExcel() {
       const shots=cd.reduce((s,r)=>s+r.count,0);
       const pRed =cd.reduce((s,r)=>s+r.reduced,0);
       const cRed =cumulData.filter(r=>r.cannon===c).reduce((s,r)=>s+r.reduced,0);
-      sumRows.push([bat,c,shots,+pRed.toFixed(4),+cRed.toFixed(4)]);
+      sumRows.push([bat,c,shots,+pRed.toFixed(1),+cRed.toFixed(1)]);
     });
   });
 
