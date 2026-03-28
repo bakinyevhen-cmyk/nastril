@@ -893,7 +893,8 @@ function clearSumFilter(){
 
 // ── EXPORT JOURNAL ────────────────────────────────
 function exportExcel() {
-  let data=getRec();
+  const allRec=getRec();
+  let data=[...allRec];
   const bat    = document.getElementById('jrn-battery').value;
   const cannon = document.getElementById('jrn-cannon').value;
   const from   = document.getElementById('jrn-from').value;
@@ -905,14 +906,35 @@ function exportExcel() {
   data.sort((a,b)=>(a.battery||'').localeCompare(b.battery||'')||(a.cannon||'').localeCompare(b.cannon||'')||(a.date||'').localeCompare(b.date||''));
 
   const wb=XLSX.utils.book_new();
-  const cannons=[...new Set(data.map(r=>r.cannon))];
+  const cannons=[...new Set(data.map(r=>String(r.cannon)))];
 
   cannons.forEach(c=>{
-    const cd=data.filter(r=>r.cannon===c);
+    const cd=data.filter(r=>String(r.cannon)===c);
+
+    // Групування: снаряд+заряд+зона → сума к-ть, прив., кільця
+    const groupMap=new Map();
+    cd.forEach(r=>{
+      const key=`${r.shell}||${r.charge}||${r.zone}`;
+      if(!groupMap.has(key)) groupMap.set(key,{shell:r.shell,charge:r.charge,zone:r.zone,count:0,reduced:0,ring:false});
+      const g=groupMap.get(key);
+      g.count+=r.count;
+      g.reduced+=r.reduced;
+      if(r.ring) g.ring=true;
+    });
+    const grouped=[...groupMap.values()].sort((a,b)=>b.count-a.count);
+
+    // Стартовий приведений = сума всіх записів до початку фільтру
     let run=0;
-    const rows=cd.map((r,i)=>{
+    if(from){
+      let pre=allRec.filter(r=>String(r.cannon)===c);
+      if(bat) pre=pre.filter(r=>(r.battery||'')===bat);
+      pre=pre.filter(r=>r.date<from);
+      run=pre.reduce((s,r)=>s+r.reduced,0);
+    }
+
+    const rows=grouped.map((r,i)=>{
       run+=r.reduced;
-      return [i+1,r.cannon,fmtPeriod(r.date),r.shell,r.charge,`Зона ${r.zone}`,r.count,r.ring?'Так':'',+r.reduced.toFixed(1),+run.toFixed(1)];
+      return [i+1,c,'',r.shell,r.charge,`Зона ${r.zone}`,r.count,r.ring?'Так':'',+r.reduced.toFixed(1),+run.toFixed(1)];
     });
     const ws=XLSX.utils.aoa_to_sheet([['№','Гармата','Період','Снаряд','Заряд','Зона','К-ть','Об. кільце','Прив. настр.','Заг. прив. настр.'],...rows]);
     ws['!cols']=[5,12,10,12,10,8,8,8,12,14].map(w=>({wch:w}));
