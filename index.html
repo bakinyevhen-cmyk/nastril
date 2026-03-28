@@ -921,7 +921,8 @@ function exportExcel() {
       g.reduced+=r.reduced;
       if(r.ring) g.ring=true;
     });
-    const grouped=[...groupMap.values()].sort((a,b)=>b.count-a.count);
+    // Сортування по назві снаряду
+    const grouped=[...groupMap.values()].sort((a,b)=>a.shell.localeCompare(b.shell)||a.charge.localeCompare(b.charge)||a.zone-b.zone);
 
     // Стартовий приведений = сума всіх записів до початку фільтру
     let run=0;
@@ -932,9 +933,14 @@ function exportExcel() {
       run=pre.reduce((s,r)=>s+r.reduced,0);
     }
 
+    // Підпис періоду
+    const periodLabel = (from||to)
+      ? ((from?fmtPeriod(from):'початок')+' — '+(to?fmtPeriod(to):'сьогодні'))
+      : 'весь період';
+
     const rows=grouped.map((r,i)=>{
       run+=r.reduced;
-      return [i+1,c,'',r.shell,r.charge,`Зона ${r.zone}`,r.count,r.ring?'Так':'',+r.reduced.toFixed(1),+run.toFixed(1)];
+      return [i+1,c,i===0?periodLabel:'',r.shell,r.charge,`Зона ${r.zone}`,r.count,r.ring?'Так':'',+r.reduced.toFixed(1),+run.toFixed(1)];
     });
     const ws=XLSX.utils.aoa_to_sheet([['№','Гармата','Період','Снаряд','Заряд','Зона','К-ть','Об. кільце','Прив. настр.','Заг. прив. настр.'],...rows]);
     ws['!cols']=[5,12,10,12,10,8,8,8,12,14].map(w=>({wch:w}));
