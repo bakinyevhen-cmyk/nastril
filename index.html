@@ -93,13 +93,21 @@ tr:hover td{background:rgba(201,168,76,.05);}
 /* BATTERY SECTIONS in summary */
 .bat-section{margin-bottom:24px;}
 .bat-header{font-family:var(--head);font-size:14px;color:var(--bg);background:var(--accent);letter-spacing:3px;text-transform:uppercase;padding:6px 16px;border-radius:3px;margin-bottom:12px;display:inline-block;}
-.sum-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(500px,1fr));gap:12px;}
 .sum-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
 .sum-card-h{background:var(--surface2);padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
 .sum-card-t{font-family:var(--head);font-size:14px;color:var(--accent);letter-spacing:1px;}
 .sum-card-b{padding:10px 14px;}
 .sum-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(48,54,61,.5);}
 .sum-row:last-child{border-bottom:none;}
+.sum-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;}
+.sum-table th{font-family:var(--head);font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--accent);text-align:left;white-space:nowrap;}
+.sum-table th.r{text-align:right;}
+.sum-table td{padding:4px 6px;border-bottom:1px solid rgba(48,54,61,.4);color:var(--text);vertical-align:middle;}
+.sum-table td.r{text-align:right;font-variant-numeric:tabular-nums;}
+.sum-table td.acc{color:var(--accent2);text-align:right;font-variant-numeric:tabular-nums;}
+.sum-table tr:hover td{background:rgba(201,168,76,.05);}
+.sum-table .ring-cell{text-align:center;color:var(--success);}
 .sum-total{margin-top:6px;padding-top:6px;border-top:1px solid var(--accent);}
 .sum-total-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;}
 .sum-total-row.main{font-size:13px;color:var(--accent2);font-weight:bold;}
@@ -134,6 +142,12 @@ tr:hover td{background:rgba(201,168,76,.05);}
 #toast{position:fixed;bottom:24px;right:24px;background:var(--success);color:#000;padding:10px 20px;border-radius:4px;font-family:var(--head);font-size:13px;letter-spacing:1px;transform:translateY(80px);opacity:0;transition:all .3s;z-index:999;}
 #toast.show{transform:translateY(0);opacity:1;}
 #toast.err{background:var(--danger);color:#fff;}
+.sum-tbl{table-layout:auto;width:100%;}
+.sum-tbl th{font-family:var(--head);font-size:10px;color:var(--accent);letter-spacing:1px;text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--accent);text-align:left;white-space:nowrap;}
+.sum-tbl th.r,.sum-tbl td.r{text-align:right;}
+.sum-tbl td{padding:4px 6px;border-bottom:1px solid rgba(48,54,61,.4);color:var(--text);vertical-align:middle;white-space:nowrap;font-size:11px;}
+.sum-tbl td.hi{color:var(--accent2);font-weight:bold;}
+.sum-tbl tr:hover td{background:rgba(201,168,76,.05);}
 .empty{text-align:center;color:var(--text2);font-size:13px;padding:36px;}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 @media(max-width:750px){.two-col{grid-column:1fr;}}
@@ -519,7 +533,7 @@ function renderRef() {
       <div class="bat-group-label">${bat}</div>
       <div class="ref-list">
         ${bc.length
-          ? bc.map(c=>`<div class="ref-tag"><span>${escH(c.name)}</span><button class="x" onclick="removeCannon('${escAttr(c.bat)}','${escAttr(c.name)}')">✕</button></div>`).join('')
+          ? bc.map(c=>`<div class="ref-tag"><span>${escH(c.name)}</span><button class="e" onclick="editCannon('${escAttr(c.bat)}','${escAttr(c.name)}')" title="Редагувати">✏</button><button class="x" onclick="removeCannon('${escAttr(c.bat)}','${escAttr(c.name)}')">✕</button></div>`).join('')
           : '<span class="ref-empty">порожньо</span>'}
       </div>
     </div>`;
@@ -597,6 +611,31 @@ function removeItem(type, name) {
   const save = type==='shell' ? saveShells : saveCharges;
   save(get().filter(s=>s!==name));
   renderRef();
+}
+
+function editItem(type, oldName) {
+  const newName = prompt(`Нова назва (було: "${oldName}"):`, oldName);
+  if(!newName||newName.trim()===''||newName.trim()===oldName) return;
+  const trimmed = newName.trim();
+  const get  = type==='shell' ? getShells  : getCharges;
+  const save = type==='shell' ? saveShells : saveCharges;
+  const items = get();
+  if(items.map(s=>s.toLowerCase()).includes(trimmed.toLowerCase())&&trimmed.toLowerCase()!==oldName.toLowerCase()){toast('Така назва вже існує!',true);return;}
+  save(items.map(s=>s===oldName?trimmed:s));
+  const field=type==='shell'?'shell':'charge';
+  saveRec(getRec().map(r=>r[field]===oldName?{...r,[field]:trimmed}:r));
+  renderRef(); toast(`"${oldName}" → "${trimmed}"`);
+}
+
+function editCannon(oldBat, oldName) {
+  const newName = prompt(`Новий номер гармати (було: "${oldName}"):`, oldName);
+  if(!newName||newName.trim()===''||newName.trim()===oldName) return;
+  const trimmed = newName.trim();
+  const cannons = getCannons();
+  if(cannons.find(c=>c.bat===oldBat&&c.name===trimmed)){toast('Така гармата вже існує!',true);return;}
+  saveCannons(cannons.map(c=>c.bat===oldBat&&c.name===oldName?{...c,name:trimmed}:c));
+  saveRec(getRec().map(r=>(r.cannon===oldName&&(r.battery||'')===oldBat)?{...r,cannon:trimmed}:r));
+  renderRef(); toast(`Гармата "${oldName}" → "${trimmed}"`);
 }
 
 // ── ADD RECORD ────────────────────────────────────
@@ -849,26 +888,35 @@ function renderSummary() {
         <div class="sum-card">
           <div class="sum-card-h">
             <div class="sum-card-t">${escH(c)}</div>
-            <div style="font-size:11px;color:var(--text2)">${cd.length} зап.</div>
-          </div>
-          <div class="sum-card-b">
-            ${gr.sort((a,b)=>b.count-a.count).map(r=>`
-              <div class="sum-row">
-                <span>${escH(r.shell)} / ${escH(r.charge)} / Зона ${r.zone}</span>
-                <span>${r.count}&nbsp;(${r.reduced.toFixed(1)})</span>
-              </div>`).join('')}
-            <div class="sum-total">
-              <div class="sum-total-row">
-                <span>Всього пострілів</span><span>${tot}</span>
-              </div>
-              <div class="sum-total-row">
-                <span>Замінено кілець</span>
-                <span style="color:${ringCount>0?'var(--success)':'var(--text2)'}">${ringCount}</span>
-              </div>
-              <div class="sum-total-row main">
-                <span>Заг. прив. настр.</span><span>${cumulRed.toFixed(1)}</span>
-              </div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <div style="font-size:11px;color:var(--text2)">${cd.length} зап.</div>
+              ${ringCount>0?`<div style="font-size:11px;color:var(--success)">&#128204; ${ringCount} кільц.</div>`:''}
             </div>
+          </div>
+          <div class="sum-card-b" style="padding:0;overflow-x:auto;">
+            <table class="sum-tbl">
+              <thead><tr>
+                <th>Снаряд</th><th>Заряд</th><th>Зона</th>
+                <th class="r">К-ть</th><th class="r">Прив.</th><th class="r">Кільце</th>
+              </tr></thead>
+              <tbody>
+                ${gr.sort((a,b)=>a.shell.localeCompare(b.shell)||a.charge.localeCompare(b.charge)||a.zone-b.zone).map(r=>`
+                <tr>
+                  <td>${escH(r.shell)}</td>
+                  <td>${escH(r.charge)}</td>
+                  <td style="white-space:nowrap">Зона ${r.zone}</td>
+                  <td class="r">${r.count}</td>
+                  <td class="r hi">${r.reduced.toFixed(1)}</td>
+                  <td class="r">${r.ring?'<span class="ring-mark">✔</span>':''}</td>
+                </tr>`).join('')}
+              </tbody>
+              <tfoot><tr style="background:rgba(201,168,76,.1);border-top:2px solid var(--accent)">
+                <td colspan="3" style="font-family:var(--head);font-size:10px;letter-spacing:1px;color:var(--text2);padding:5px 6px">РАЗОМ / ЗАГ. ПРИВ.</td>
+                <td class="r" style="font-weight:bold;color:var(--text);padding:5px 6px">${tot}</td>
+                <td class="r" style="font-weight:bold;color:var(--accent2);font-size:13px;padding:5px 6px">${cumulRed.toFixed(1)}</td>
+                <td class="r" style="color:${ringCount>0?'var(--success)':'var(--text2)'};font-weight:bold;padding:5px 6px">${ringCount||''}</td>
+              </tr></tfoot>
+            </table>
           </div>
         </div>`;
     });
