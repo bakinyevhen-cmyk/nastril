@@ -124,6 +124,8 @@ tr:hover td{background:rgba(201,168,76,.05);}
 .ref-list{display:flex;flex-wrap:wrap;gap:5px;min-height:24px;}
 .ref-tag{display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:3px 9px;font-size:12px;}
 .ref-tag .x{background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;line-height:1;padding:0;}
+.ref-tag .e{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;line-height:1;padding:0;opacity:0.8;}
+.ref-tag .e:hover{opacity:1;color:var(--accent2);}
 .ref-empty{font-size:11px;color:var(--text2);font-style:italic;}
 .ref-add{display:flex;gap:6px;align-items:center;margin-top:6px;}
 .ref-add input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 9px;font-family:var(--mono);font-size:12px;border-radius:3px;outline:none;flex:1;min-width:0;}
@@ -268,8 +270,12 @@ select optgroup option{color:var(--text);background:var(--surface2);}
     </div>
 
     <!-- ДОВІДНИК -->
-    <div class="card">
-      <div class="card-title">📋 Довідник</div>
+    <div id="ref-toggle" onclick="toggleRef()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--border);border-radius:4px;margin-bottom:6px;cursor:pointer;font-family:var(--head);font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);transition:color .2s,border-top-color .2s;user-select:none;">
+      <span>📋 Довідник номенклатури</span>
+      <span style="flex:1"></span>
+      <span id="ref-arr" style="font-size:11px;display:inline-block;transition:transform .3s">▼</span>
+    </div>
+    <div id="ref-drawer" style="display:none;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:4px;padding:16px 20px;margin-bottom:16px;">
       <div class="ref-cols">
 
         <!-- Гармати по батареях -->
@@ -306,8 +312,6 @@ select optgroup option{color:var(--text);background:var(--surface2);}
             <button class="btn btn-primary" style="padding:6px 12px" onclick="addItem('charge')">+</button>
           </div>
         </div>
-
-      </div>
     </div>
   </div>
 </div>
@@ -533,34 +537,17 @@ function renderRef() {
       <div class="bat-group-label">${bat}</div>
       <div class="ref-list">
         ${bc.length
-          ? bc.map(c=>`<div class="ref-tag"><span>${escH(c.name)}</span><button class="e" onclick="editCannon('${escAttr(c.bat)}','${escAttr(c.name)}')" title="Редагувати">✏</button><button class="x" onclick="removeCannon('${escAttr(c.bat)}','${escAttr(c.name)}')">✕</button></div>`).join('')
-          : '<span class="ref-empty">порожньо</span>'}
-      </div>
-    </div>`;
-  });
-  document.getElementById('cannons-ref').innerHTML = html;
-
-  // Shells & charges
-  const shells  = getShells();
-  const charges = getCharges();
-  document.getElementById('shells-list').innerHTML  = refTags(shells,  'shell');
-  document.getElementById('charges-list').innerHTML = refTags(charges, 'charge');
-
-  // Populate shell/charge selects
-  ['inp-shell','ed-shell'].forEach(id => fillSel(id, shells));
-  ['inp-charge','ed-charge'].forEach(id => fillSel(id, charges));
-
-  // Refresh cannon selects based on current battery selection
-  ['inp','ed','jrn'].forEach(p => {
-    const batEl = document.getElementById(p+'-battery');
-    if(batEl) onBatteryChange(p);
-  });
+          ? bc.map(c=>{
+      const dn=c.name.replace(/"/g,'&quot;'), db=c.bat.replace(/"/g,'&quot;');
+      return `<div class="ref-tag" data-bat="${db}" data-val="${dn}">
+        <span>${escH(c.name)}</span>
+        <button class="e" onclick="editCannon(this.closest('.ref-tag').dataset.bat,this.closest('.ref-tag').dataset.val)" title="Редагувати">✏</button>
+        <button class="x" onclick="removeCannon(this.closest('.ref-tag').dataset.bat,this.closest('.ref-tag').dataset.val)" title="Видалити">✕</button>
+      </div>`;
+    }).join('');
 }
-
-function refTags(items, type) {
-  if(!items.length) return '<span class="ref-empty">порожньо</span>';
-  return items.map(v=>`<div class="ref-tag"><span>${escH(v)}</span><button class="x" onclick="removeItem('${type}','${escAttr(v)}')">✕</button></div>`).join('');
-}
+function editItemFromTag(btn){const t=btn.closest('.ref-tag');editItem(t.dataset.type,t.dataset.val);}
+function removeItemFromTag(btn){const t=btn.closest('.ref-tag');removeItem(t.dataset.type,t.dataset.val);}
 
 function fillSel(id, items) {
   const sel = document.getElementById(id);
@@ -910,12 +897,20 @@ function renderSummary() {
                   <td class="r">${r.ring?'<span class="ring-mark">✔</span>':''}</td>
                 </tr>`).join('')}
               </tbody>
-              <tfoot><tr style="background:rgba(201,168,76,.1);border-top:2px solid var(--accent)">
-                <td colspan="3" style="font-family:var(--head);font-size:10px;letter-spacing:1px;color:var(--text2);padding:5px 6px">РАЗОМ / ЗАГ. ПРИВ.</td>
-                <td class="r" style="font-weight:bold;color:var(--text);padding:5px 6px">${tot}</td>
-                <td class="r" style="font-weight:bold;color:var(--accent2);font-size:13px;padding:5px 6px">${cumulRed.toFixed(1)}</td>
-                <td class="r" style="color:${ringCount>0?'var(--success)':'var(--text2)'};font-weight:bold;padding:5px 6px">${ringCount||''}</td>
-              </tr></tfoot>
+              <tfoot>
+                ${(from||to)?`<tr style="border-top:1px solid var(--border)">
+                  <td colspan="3" style="font-family:var(--head);font-size:10px;letter-spacing:1px;color:var(--text2);padding:4px 6px">ЗА ПЕРІОД</td>
+                  <td class="r" style="color:var(--text);padding:4px 6px">${cd.reduce((s,r)=>s+r.count,0)}</td>
+                  <td class="r" style="color:var(--accent);padding:4px 6px">${cd.reduce((s,r)=>s+r.reduced,0).toFixed(1)}</td>
+                  <td class="r" style="padding:4px 6px"></td>
+                </tr>`:''}
+                <tr style="background:rgba(201,168,76,.1);border-top:2px solid var(--accent)">
+                  <td colspan="3" style="font-family:var(--head);font-size:10px;letter-spacing:1px;color:var(--text2);padding:5px 6px">РАЗОМ / ЗАГ. ПРИВ.</td>
+                  <td class="r" style="font-weight:bold;color:var(--text);padding:5px 6px">${tot}</td>
+                  <td class="r" style="font-weight:bold;color:var(--accent2);font-size:13px;padding:5px 6px">${cumulRed.toFixed(1)}</td>
+                  <td class="r" style="color:${ringCount>0?'var(--success)':'var(--text2)'};font-weight:bold;padding:5px 6px">${ringCount||''}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>`;
@@ -1038,6 +1033,17 @@ function fmtDate(iso){ if(!iso)return''; const[y,m,d]=iso.split('-'); return`${d
 function fmtPeriod(iso){ if(!iso)return''; const[y,m]=iso.split('-'); return`${m}.${y}`; }
 function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function escAttr(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function toggleRef() {
+  const drawer=document.getElementById('ref-drawer');
+  const arr=document.getElementById('ref-arr');
+  const toggle=document.getElementById('ref-toggle');
+  const isOpen=drawer.style.display!=='none';
+  drawer.style.display=isOpen?'none':'block';
+  arr.style.transform=isOpen?'rotate(0deg)':'rotate(180deg)';
+  toggle.style.borderTopColor=isOpen?'var(--border)':'var(--accent)';
+  toggle.style.color=isOpen?'var(--text2)':'var(--accent)';
+}
+
 function toast(msg,err=false){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className=err?'err show':'show';
